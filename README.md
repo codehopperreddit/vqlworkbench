@@ -15,7 +15,7 @@ A web-based tool for building and executing VQL (Vault Query Language) queries a
 
 ## Demo
 
-You can access the live demo at [your-github-username.github.io/veeva-vault-vql-webapp](https://your-github-username.github.io/veeva-vault-vql-webapp)
+You can access the live demo at [codehopperreddit.github.io/vqlworkbench](https://codehopperreddit.github.io/vqlworkbench)
 
 ## How to Use
 
@@ -45,18 +45,18 @@ You can access the live demo at [your-github-username.github.io/veeva-vault-vql-
 3. Navigate to the "Pages" section
 4. Select the "main" branch as the source
 5. Click "Save"
-6. Your app will be available at `https://your-github-username.github.io/veeva-vault-vql-webapp`
+6. Your app will be available at `https://codehopperreddit.github.io/vqlworkbench`
 
 ### Running Locally
 
 1. Clone the repository:
    ```
-   git clone https://github.com/your-github-username/veeva-vault-vql-webapp.git
+   git clone https://github.com/codehopperreddit.github.io/vqlworkbench.git
    ```
 
 2. Navigate to the project directory:
    ```
-   cd veeva-vault-vql-webapp
+   cd vqlworkbench
    ```
 
 3. Open `index.html` in your browser or use a local server.
