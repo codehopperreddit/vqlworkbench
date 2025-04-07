@@ -278,7 +278,7 @@ async function login() {
         const authUrl = `${vaultClient.baseUrl}/api/v24.1/auth`;
         
         // Using a CORS proxy for development / to be removed with own is success
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const proxyUrl = 'https://cors-anywhere-syse.onrender.com/';
         const urlToFetch = proxyUrl + authUrl;
         
         // Create form data
