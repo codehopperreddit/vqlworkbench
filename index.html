@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veeva Vault VQL Query Builder</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: none;
+        }
+        
+        .card-header {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 0 0 5px 5px;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0069d9;
+            border-color: #0062cc;
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        
+        .btn-success:hover {
+            background-color: #218838;
+            border-color: #1e7e34;
+        }
+        
+        .alert {
+            margin-top: 15px;
+        }
+        
+        .filter-row {
+            margin-bottom: 10px;
+        }
+        
+        .status-bar {
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            padding: 8px 15px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .fields-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            padding: 10px;
+            background-color: #fff;
+        }
+        
+        .field-item {
+            padding: 5px;
+            cursor: pointer;
+        }
+        
+        .field-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .field-item.selected {
+            background-color: #cce5ff;
+        }
+        
+        #query-builder-tab, #results-tab {
+            display: none;
+        }
+
+        #query-text {
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+        }
+
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        #results-table th {
+            position: sticky;
+            top: 0;
+            background-color: #f8f9fa;
+            z-index: 10;
+        }
+
+        .tooltip-inner {
+            max-width: 300px;
+            text-align: left;
+        }
+
+        .debug-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: none;
+            overflow-y: auto;
+        }
+        
+        .debug-content {
+            background-color: #fff;
+            margin: 50px auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 5px;
+        }
+
+        .debug-log {
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Veeva Vault VQL Query Builder</h1>
+        
+        <!-- Tabs -->
+        <ul class="nav nav-tabs" id="main-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="connection-tab-btn" data-bs-toggle="tab" data-bs-target="#connection-tab" type="button" role="tab" aria-controls="connection-tab" aria-selected="true">Connection</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link disabled" id="query-builder-tab-btn" data-bs-toggle="tab" data-bs-target="#query-builder-tab" type="button" role="tab" aria-controls="query-builder-tab" aria-selected="false">Query Builder</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link disabled" id="results-tab-btn" data-bs-toggle="tab" data-bs-target="#results-tab" type="button" role="tab" aria-controls="results-tab" aria-selected="false">Results</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="help-tab-btn" data-bs-toggle="tab" data-bs-target="#help-tab" type="button" role="tab" aria-controls="help-tab" aria-selected="false">Help</button>
+            </li>
+        </ul>
+        
+        <!-- Tab Content -->
+        <div class="tab-content" id="main-tab-content">
+            <!-- Connection Tab -->
+            <div class="tab-pane fade show active" id="connection-tab" role="tabpanel" aria-labelledby="connection-tab-btn">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Connect to Veeva Vault</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="connection-form">
+                            <div class="mb-3">
+                                <label for="vault-url" class="form-label">Vault URL:</label>
+                                <input type="text" class="form-control" id="vault-url" placeholder="yourvault.veevavault.com" required data-bs-toggle="tooltip" data-bs-placement="right" title="Enter your Veeva Vault URL (e.g., yourvault.veevavault.com)">
+                            </div>
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username:</label>
+                                <input type="text" class="form-control" id="username" placeholder="your.email@company.com" required data-bs-toggle="tooltip" data-bs-placement="right" title="Enter your Veeva Vault username">
+                            </div>
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password:</label>
+                                <input type="password" class="form-control" id="password" required data-bs-toggle="tooltip" data-bs-placement="right" title="Enter your Veeva Vault password">
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="verify-ssl" checked>
+                                <label class="form-check-label" for="verify-ssl" data-bs-toggle="tooltip" data-bs-placement="right" title="Uncheck this if you encounter SSL certificate verification issues">Verify SSL Certificate</label>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="save-credentials">
+                                <label class="form-check-label" for="save-credentials" data-bs-toggle="tooltip" data-bs-placement="right" title="Credentials will be saved locally for next time (not encrypted)">Save credentials</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="connect-button">Connect</button>
+                            <div id="connection-status" class="mt-3"></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Query Builder Tab -->
+            <div class="tab-pane fade" id="query-builder-tab" role="tabpanel" aria-labelledby="query-builder-tab-btn">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>VQL Query Builder</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Choose the object, fields, and criteria to build a VQL query below:</p>
+                        
+                        <!-- Object Selection -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="object-select" class="form-label">Object:</label>
+                                <input class="form-control" list="object-list" id="object-select" placeholder="Type to search...">
+                                <datalist id="object-list"></datalist>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">View as:</label>
+                                <div class="d-flex">
+                                    <div class="form-check me-3">
+                                        <input class="form-check-input" type="radio" name="output-format" id="format-list" value="List" checked>
+                                        <label class="form-check-label" for="format-list">List</label>
+                                    </div>
+                                    <div class="form-check me-3">
+                                        <input class="form-check-input" type="radio" name="output-format" id="format-matrix" value="Matrix">
+                                        <label class="form-check-label" for="format-matrix">Matrix</label>
+                                    </div>
+                                    <div class="form-check me-3">
+                                        <input class="form-check-input" type="radio" name="output-format" id="format-csv" value="CSV">
+                                        <label class="form-check-label" for="format-csv">Bulk CSV</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="output-format" id="format-xml" value="XML">
+                                        <label class="form-check-label" for="format-xml">Bulk XML</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Deleted and archived records:</label>
+                                <div class="d-flex">
+                                    <div class="form-check me-3">
+                                        <input class="form-check-input" type="radio" name="include-archived" id="exclude-archived" value="false" checked>
+                                        <label class="form-check-label" for="exclude-archived">Exclude</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="include-archived" id="include-archived" value="true">
+                                        <label class="form-check-label" for="include-archived">Include</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Fields and Criteria -->
+                        <div class="row">
+                            <!-- Fields -->
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">Fields:</div>
+                                    <div class="card-body p-0">
+                                        <div id="fields-container" class="fields-container">
+                                            <div class="text-center py-3 text-muted">Select an object first</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Criteria -->
+                            <div class="col-md-8">
+                                <!-- Sorting -->
+                                <div class="card mb-3">
+                                    <div class="card-header">Sort results by:</div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <select class="form-select" id="sort-field">
+                                                    <option value="">-- Select Field --</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <select class="form-select" id="sort-direction">
+                                                    <option value="ASC">A to Z</option>
+                                                    <option value="DESC">Z to A</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <select class="form-select" id="nulls-position">
+                                                    <option value="NULLS FIRST">Nulls First</option>
+                                                    <option value="NULLS LAST">Nulls Last</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Filters -->
+                                <div class="card mb-3">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <span>Filter results by:</span>
+                                        <button type="button" class="btn btn-sm btn-primary" id="add-filter">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="filters-container">
+                                            <!-- Filters will be added here -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Max Records -->
+                                <div class="mb-3">
+                                    <label for="max-records" class="form-label">Max Records:</label>
+                                    <input type="number" class="form-control" id="max-records" value="1000" min="1" max="10000">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Query Display -->
+                        <div class="card mt-3">
+                            <div class="card-header">Enter or modify a VQL query below:</div>
+                            <div class="card-body">
+                                <textarea class="form-control" id="query-text" rows="6"></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-primary" id="execute-query">Query</button>
+                            <button type="button" class="btn btn-success ms-2" id="export-query">Export to CSV</button>
+                            <button type="button" class="btn btn-outline-info ms-2" id="query-help">
+                                <i class="fas fa-question-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Results Tab -->
+            <div class="tab-pane fade" id="results-tab" role="tabpanel" aria-labelledby="results-tab-btn">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Query Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="results-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="results-text-tab" data-bs-toggle="tab" data-bs-target="#results-text-content" type="button" role="tab" aria-selected="true">Results Text</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="results-table-tab" data-bs-toggle="tab" data-bs-target="#results-table-content" type="button" role="tab" aria-selected="false">Results Table</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="results-tab-content">
+                            <div class="tab-pane fade show active" id="results-text-content" role="tabpanel">
+                                <pre id="results-text" class="mt-3 p-3 bg-light" style="max-height: 500px; overflow-y: auto;"></pre>
+                            </div>
+                            <div class="tab-pane fade" id="results-table-content" role="tabpanel">
+                                <div class="table-container mt-3">
+                                    <table class="table table-striped table-bordered" id="results-table">
+                                        <thead>
+                                            <tr>
+                                                <!-- Table headers will be added dynamically -->
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Table rows will be added dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-primary" id="export-results">Export Results</button>
+                            <button type="button" class="btn btn-secondary ms-2" id="copy-clipboard">Copy to Clipboard</button>
+                            <button type="button" class="btn btn-danger ms-2" id="clear-results">Clear Results</button>
+                        </div>
+                        
+                        <div id="results-status" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Help Tab -->
+            <div class="tab-pane fade" id="help-tab" role="tabpanel" aria-labelledby="help-tab-btn">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Help and Documentation</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="help-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="getting-started-tab" data-bs-toggle="tab" data-bs-target="#getting-started-content" type="button" role="tab" aria-selected="true">Getting Started</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="vql-reference-tab" data-bs-toggle="tab" data-bs-target="#vql-reference-content" type="button" role="tab" aria-selected="false">VQL Reference</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="troubleshooting-tab" data-bs-toggle="tab" data-bs-target="#troubleshooting-content" type="button" role="tab" aria-selected="false">Troubleshooting</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="about-tab" data-bs-toggle="tab" data-bs-target="#about-content" type="button" role="tab" aria-selected="false">About</button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="help-tab-content">
+                            <div class="tab-pane fade show active" id="getting-started-content" role="tabpanel">
+                                <div class="p-3">
+                                    <h4>Getting Started with Veeva Vault VQL Query Builder</h4>
+                                    <p>This tool allows you to build and execute VQL (Vault Query Language) queries against your Veeva Vault. Here's how to get started:</p>
+                                    
+                                    <h5>1. Connection Tab:</h5>
+                                    <ul>
+                                        <li>Enter your Veeva Vault URL, username, and password</li>
+                                        <li>Click "Connect" to authenticate with your Vault</li>
+                                        <li>If you encounter SSL certificate errors, uncheck "Verify SSL Certificate"</li>
+                                    </ul>
+                                    
+                                    <h5>2. Query Builder Tab:</h5>
+                                    <ul>
+                                        <li>Select a target object from the dropdown</li>
+                                        <li>Choose fields from the list (multiple selection supported)</li>
+                                        <li>Set sorting options (field, direction, nulls handling)</li>
+                                        <li>Add filter criteria as needed</li>
+                                        <li>Set output format (List, Matrix, Bulk CSV, Bulk XML)</li>
+                                        <li>Specify whether to include deleted/archived records</li>
+                                        <li>Review the generated query or modify it directly</li>
+                                        <li>Click "Query" to execute or "Export to CSV" to save results</li>
+                                    </ul>
+                                    
+                                    <h5>3. Results Tab:</h5>
+                                    <ul>
+                                        <li>View the query results in text or table format</li>
+                                        <li>Export results to a CSV file or copy to clipboard</li>
+                                    </ul>
+                                    
+                                    <h5>Tips:</h5>
+                                    <ul>
+                                        <li>You can add multiple filter criteria by clicking the "+" button</li>
+                                        <li>The query is updated automatically as you select options</li>
+                                        <li>You can directly edit the query in the text box if needed</li>
+                                        <li>Use the Max Records field to limit the number of returned records</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="vql-reference-content" role="tabpanel">
+                                <div class="p-3">
+                                    <h4>Veeva Vault Query Language (VQL) Reference</h4>
+                                    
+                                    <h5>Basic Query Structure:</h5>
+                                    <pre>
+SELECT {fields}
+FROM {query target}
+WHERE {conditions}
+ORDER BY {field} {direction} {nulls position}
+PAGESIZE {limit}
+                                    </pre>
+                                    
+                                    <h5>Common Clauses:</h5>
+                                    <ul>
+                                        <li><strong>SELECT:</strong> Specifies the fields to retrieve</li>
+                                        <li><strong>FROM:</strong> Specifies the object to query</li>
+                                        <li><strong>WHERE:</strong> Filters the results based on conditions</li>
+                                        <li><strong>ORDER BY:</strong> Sorts the results</li>
+                                        <li><strong>PAGESIZE:</strong> Limits the number of results per page</li>
+                                    </ul>
+                                    
+                                    <h5>Field Types:</h5>
+                                    <ul>
+                                        <li><strong>String fields:</strong> Use single quotes, e.g., name__v = 'Document Name'</li>
+                                        <li><strong>Numbers:</strong> Do not use quotes, e.g., id = 123</li>
+                                        <li><strong>Dates:</strong> Use single quotes, e.g., created_date__v > '2023-01-01'</li>
+                                        <li><strong>Boolean:</strong> Use true or false (lowercase), e.g., active__v = true</li>
+                                        <li><strong>Null values:</strong> Use null (lowercase), e.g., field__c = null</li>
+                                    </ul>
+                                    
+                                    <h5>Operators in WHERE Clause:</h5>
+                                    <ul>
+                                        <li><strong>Equality:</strong> =, !=, <, >, <=, >=</li>
+                                        <li><strong>Logical:</strong> AND, OR</li>
+                                        <li><strong>Pattern matching:</strong> LIKE (with % wildcard)</li>
+                                        <li><strong>Multiple values:</strong> IN</li>
+                                        <li><strong>Range:</strong> BETWEEN</li>
+                                    </ul>
+                                    
+                                    <h5>Examples:</h5>
+                                    <ul>
+                                        <li>Get all products: <code>SELECT id, name__v FROM product__v</code></li>
+                                        <li>Filter by name: <code>SELECT id FROM documents WHERE name__v = 'Report'</code></li>
+                                        <li>Get recent documents: <code>SELECT id, name__v FROM documents WHERE created_date__v > '2023-01-01'</code></li>
+                                        <li>Pattern matching: <code>SELECT id FROM product__v WHERE name__v LIKE 'Med%'</code></li>
+                                    </ul>
+                                    
+                                    <p>For more details, refer to the <a href="https://developer.veevavault.com/api/24.1/" target="_blank">Veeva Vault API documentation</a>.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="troubleshooting-content" role="tabpanel">
+                                <div class="p-3">
+                                    <h4>Troubleshooting</h4>
+                                    <p>Common Issues and Solutions:</p>
+                                    
+                                    <h5>1. Connection Issues:</h5>
+                                    <ul>
+                                        <li>Ensure your Vault URL is correct (e.g., yourvault.veevavault.com)</li>
+                                        <li>Verify your username and password</li>
+                                        <li>If you encounter SSL certificate errors, try unchecking "Verify SSL Certificate"</li>
+                                        <li>Check your network connection and proxy settings</li>
+                                        <li>If you're using this app on GitHub Pages, ensure you have CORS enabled for your Vault</li>
+                                    </ul>
+                                    
+                                    <h5>2. Query Errors:</h5>
+                                    <ul>
+                                        <li>Ensure field names are correct and include namespace suffixes (__v, __c)</li>
+                                        <li>Make sure object names are correct</li>
+                                        <li>Check the syntax of your WHERE clause</li>
+                                        <li>Review the generated query before execution</li>
+                                    </ul>
+                                    
+                                    <h5>3. Performance Issues:</h5>
+                                    <ul>
+                                        <li>For large result sets, use a smaller Max Records value</li>
+                                        <li>Only select the fields you need</li>
+                                        <li>Use specific filters to narrow results</li>
+                                        <li>Consider exporting to CSV for large data sets</li>
+                                    </ul>
+                                    
+                                    <h5>4. Error Messages:</h5>
+                                    <ul>
+                                        <li>"Authentication failed": Check your credentials</li>
+                                        <li>"Field not found": Verify field names and object selection</li>
+                                        <li>"Invalid query syntax": Review VQL syntax and field names</li>
+                                        <li>"Permission denied": Ensure you have appropriate permissions</li>
+                                        <li>"CORS error": Your Vault may need to be configured to allow cross-origin requests</li>
+                                    </ul>
+                                    
+                                    <p>If you continue to experience issues, check the <a href="https://developer.veevavault.com/api/24.1/" target="_blank">Veeva Vault API documentation</a> or contact Veeva Support.</p>
+                                    
+                                    <p>For technical issues with this tool, click the "Debug Info" button at the bottom right of the screen to collect diagnostic information.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="about-content" role="tabpanel">
+                                <div class="p-3">
+                                    <h4>Veeva Vault VQL Query Builder</h4>
+                                    <p><strong>Version:</strong> 2.0.0</p>
+                                    <p><strong>Created:</strong> April 2025</p>
+                                    
+                                    <p>This tool provides a web interface for building and executing VQL (Vault Query Language) queries against Veeva Vault. It allows you to:</p>
+                                    <ul>
+                                        <li>Connect to any Veeva Vault instance</li>
+                                        <li>Build queries with an intuitive interface</li>
+                                        <li>Select fields, apply sorting and filtering</li>
+                                        <li>Execute queries and view results</li>
+                                        <li>Export results to CSV files</li>
+                                    </ul>
+                                    
+                                    <p>The tool is designed to be user-friendly and intuitive, with helpful tooltips and documentation.</p>
+                                    
+                                    <h5>Features:</h5>
+                                    <ul>
+                                        <li>Modern, responsive UI</li>
+                                        <li>Query builder interface</li>
+                                        <li>Multiple field selection</li>
+                                        <li>Customizable sorting and filtering</li>
+                                        <li>Result export to CSV</li>
+                                        <li>SSL certificate verification toggle</li>
+                                        <li>Saved connection settings</li>
+                                    </ul>
+                                    
+                                    <h5>Web vs. Desktop Version:</h5>
+                                    <p>This is a web-based version </p>
+                                    
+                                    <p>For more information about Veeva Vault and VQL, visit: <a href="https://developer.veevavault.com/" target="_blank">https://developer.veevavault.com/</a></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary mt-3" onclick="window.open('https://developer.veevavault.com/api/24.1/', '_blank')">
+                            Open Veeva Vault API Documentation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Status Bar -->
+        <div class="status-bar mt-3 d-flex justify-content-between rounded">
+            <span id="status-message">Ready</span>
+            <button class="btn btn-sm btn-secondary" id="debug-button">Debug Info</button>
+        </div>
+    </div>
+    
+    <!-- Debug Overlay -->
+    <div id="debug-overlay" class="debug-overlay">
+        <div class="debug-content">
+            <h3>Debug Information</h3>
+            <div id="debug-log" class="debug-log"></div>
+            <h5>System Info</h5>
+            <pre id="system-info" class="debug-log"></pre>
+            <h5>API Status</h5>
+            <pre id="api-status" class="debug-log"></pre>
+            <h5>UI State</h5>
+            <pre id="ui-state" class="debug-log"></pre>
+            <button type="button" class="btn btn-primary" id="close-debug">Close</button>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script src="js/app.js"></script>
+</body>
+</html>
