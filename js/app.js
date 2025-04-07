@@ -272,9 +272,14 @@ function connectToVault() {
 }
 
 // Login to Veeva Vault
+// Update the login function in app.js
 async function login() {
     try {
         const authUrl = `${vaultClient.baseUrl}/api/v24.1/auth`;
+        
+        // Using a CORS proxy for development / to be removed with own is success
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const urlToFetch = proxyUrl + authUrl;
         
         // Create form data
         const formData = new FormData();
@@ -282,7 +287,7 @@ async function login() {
         formData.append('password', vaultClient.password);
         
         // Make request
-        const response = await fetch(authUrl, {
+        const response = await fetch(urlToFetch, {
             method: 'POST',
             body: formData
         });
@@ -296,6 +301,10 @@ async function login() {
             throw new Error(errorMessage);
         }
     } catch (error) {
+        if (error.message.includes('Failed to fetch')) {
+            throw new Error('CORS error: Cannot connect to Veeva Vault API from browser. ' + 
+                           'This is likely due to CORS restrictions. Try using a CORS proxy or contact Veeva Support to enable CORS for your vault.');
+        }
         throw new Error(`Login error: ${error.message}`);
     }
 }
