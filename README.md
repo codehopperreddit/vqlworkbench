@@ -36,16 +36,6 @@ You can access the live demo at [codehopperreddit.github.io/vqlworkbench](https:
    - View results in text or table format
    - Export results to a CSV file or copy to clipboard
 
-## Deployment
-
-### Hosting on GitHub Pages
-
-1. Fork this repository
-2. Go to the repository settings
-3. Navigate to the "Pages" section
-4. Select the "main" branch as the source
-5. Click "Save"
-6. Your app will be available at `https://codehopperreddit.github.io/vqlworkbench`
 
 ### Running Locally
 
