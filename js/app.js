@@ -6,6 +6,10 @@
 const DEBUG_MODE = true;
 let debugLog = [];
 
+let useCorsProxy = true;
+const corsProxyUrl = 'https://cors-anywhere-syse.onrender.com/';
+
+
 // Global state
 let vaultClient = {
     baseUrl: '',
@@ -26,6 +30,7 @@ const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
 });
 
 // DOM elements
+const useCorsProxyCheck = document.getElementById('use-cors-proxy');
 const connectionForm = document.getElementById('connection-form');
 const vaultUrlInput = document.getElementById('vault-url');
 const usernameInput = document.getElementById('username');
@@ -74,6 +79,27 @@ function init() {
     logDebug('Application initialized');
 }
 
+function getProxiedUrl(url) {
+    return useCorsProxy ? corsProxyUrl + url : url;
+}
+
+async function fetchWithCorsHandling(url, options) {
+    try {
+        const response = await fetch(url, options);
+        return response;
+    } catch (error) {
+        if (error.message.includes('Failed to fetch')) {
+            const corsError = new Error('CORS error: Cannot connect to Veeva Vault API from browser. ' + 
+                           'This is likely due to CORS restrictions. Make sure the CORS proxy is enabled or contact Veeva Support.');
+            corsError.isCorsError = true;
+            throw corsError;
+        }
+        throw error;
+    }
+}
+
+
+
 // Event listeners setup
 function setupEventListeners() {
     // Connection form submission
@@ -81,6 +107,11 @@ function setupEventListeners() {
         e.preventDefault();
         connectToVault();
     });
+	useCorsProxyCheck.addEventListener('change', function() {
+    useCorsProxy = useCorsProxyCheck.checked;
+    logDebug(`CORS proxy usage set to: ${useCorsProxy}`);
+	});
+
     
     // Object selection
     objectSelect.addEventListener('input', filterObjects);
@@ -186,6 +217,12 @@ function loadConfig() {
             
             verifySSLCheck.checked = config.verifySSL !== false;
             
+            // Load CORS proxy setting
+            if (config.useCorsProxy !== undefined) {
+                useCorsProxyCheck.checked = config.useCorsProxy;
+                useCorsProxy = config.useCorsProxy;
+            }
+            
             logDebug('Loaded configuration from localStorage');
         }
     } catch (error) {
@@ -197,12 +234,13 @@ function loadConfig() {
 
 // Save configuration
 function saveConfig() {
-    try {
+      try {
         const config = {
             url: vaultUrlInput.value,
             username: usernameInput.value,
             verifySSL: verifySSLCheck.checked,
-            saveCredentials: saveCredentialsCheck.checked
+            saveCredentials: saveCredentialsCheck.checked,
+            useCorsProxy: useCorsProxyCheck.checked
         };
         
         if (saveCredentialsCheck.checked) {
@@ -276,10 +314,9 @@ function connectToVault() {
 async function login() {
     try {
         const authUrl = `${vaultClient.baseUrl}/api/v24.1/auth`;
+        const urlToFetch = getProxiedUrl(authUrl);
         
-        // Using a CORS proxy for development / to be removed with own is success
-        const proxyUrl = 'https://cors-anywhere-syse.onrender.com/';
-        const urlToFetch = proxyUrl + authUrl;
+        logDebug(`Using URL for login: ${urlToFetch} (CORS proxy: ${useCorsProxy})`);
         
         // Create form data
         const formData = new FormData();
@@ -287,7 +324,7 @@ async function login() {
         formData.append('password', vaultClient.password);
         
         // Make request
-        const response = await fetch(urlToFetch, {
+        const response = await fetchWithCorsHandling(urlToFetch, {
             method: 'POST',
             body: formData
         });
@@ -301,9 +338,10 @@ async function login() {
             throw new Error(errorMessage);
         }
     } catch (error) {
-        if (error.message.includes('Failed to fetch')) {
-            throw new Error('CORS error: Cannot connect to Veeva Vault API from browser. ' + 
-                           'This is likely due to CORS restrictions. Try using a CORS proxy or contact Veeva Support to enable CORS for your vault.');
+        if (error.isCorsError) {
+            // Special handling for CORS errors
+            logDebug('CORS error detected in login');
+            showCorsErrorMessage();
         }
         throw new Error(`Login error: ${error.message}`);
     }
@@ -311,19 +349,22 @@ async function login() {
 
 // Execute a VQL query
 async function executeVqlQuery(vqlQuery) {
-    try {
+     try {
         if (!vaultClient.sessionId) {
             throw new Error('Not authenticated. Please log in first.');
         }
         
         const queryUrl = `${vaultClient.baseUrl}/api/v24.1/query`;
+        const urlToFetch = getProxiedUrl(queryUrl);
+        
+        logDebug(`Using URL for query: ${urlToFetch} (CORS proxy: ${useCorsProxy})`);
         
         // Create form data
         const formData = new FormData();
         formData.append('q', vqlQuery);
         
         // Make request
-        const response = await fetch(queryUrl, {
+        const response = await fetchWithCorsHandling(urlToFetch, {
             method: 'POST',
             headers: {
                 'Authorization': vaultClient.sessionId
@@ -333,21 +374,28 @@ async function executeVqlQuery(vqlQuery) {
         
         return await response.json();
     } catch (error) {
+        if (error.isCorsError) {
+            logDebug('CORS error detected in executeVqlQuery');
+            showCorsErrorMessage();
+        }
         throw new Error(`Query execution error: ${error.message}`);
     }
 }
 
 // Get object metadata
 async function getObjectMetadata(objectName) {
-    try {
+   try {
         if (!vaultClient.sessionId) {
             throw new Error('Not authenticated. Please log in first.');
         }
         
         const metadataUrl = `${vaultClient.baseUrl}/api/v24.1/metadata/objects/${objectName}`;
+        const urlToFetch = getProxiedUrl(metadataUrl);
+        
+        logDebug(`Using URL for metadata: ${urlToFetch} (CORS proxy: ${useCorsProxy})`);
         
         // Make request
-        const response = await fetch(metadataUrl, {
+        const response = await fetchWithCorsHandling(urlToFetch, {
             method: 'GET',
             headers: {
                 'Authorization': vaultClient.sessionId
@@ -360,8 +408,9 @@ async function getObjectMetadata(objectName) {
         if (objectName === 'documents' && responseJson.types) {
             if (responseJson.types && responseJson.types.length > 0) {
                 const typeUrl = responseJson.types[0].value;
+                const typeUrlToFetch = getProxiedUrl(typeUrl);
                 
-                const typeResponse = await fetch(typeUrl, {
+                const typeResponse = await fetchWithCorsHandling(typeUrlToFetch, {
                     method: 'GET',
                     headers: {
                         'Authorization': vaultClient.sessionId
@@ -385,8 +434,9 @@ async function getObjectMetadata(objectName) {
         // For standard objects, direct query for fields might be needed
         if ((objectName === 'users' || objectName === 'groups') && !responseJson.fields) {
             const fieldsUrl = `${vaultClient.baseUrl}/api/v24.1/metadata/objects/${objectName}/fields`;
+            const fieldsUrlToFetch = getProxiedUrl(fieldsUrl);
             
-            const fieldsResponse = await fetch(fieldsUrl, {
+            const fieldsResponse = await fetchWithCorsHandling(fieldsUrlToFetch, {
                 method: 'GET',
                 headers: {
                     'Authorization': vaultClient.sessionId
@@ -417,21 +467,28 @@ async function getObjectMetadata(objectName) {
         
         return responseJson;
     } catch (error) {
+        if (error.isCorsError) {
+            logDebug('CORS error detected in getObjectMetadata');
+            showCorsErrorMessage();
+        }
         throw new Error(`Metadata retrieval error: ${error.message}`);
     }
 }
 
 // Get available objects
 async function getObjects() {
-    try {
+     try {
         if (!vaultClient.sessionId) {
             throw new Error('Not authenticated. Please log in first.');
         }
         
         const objectsUrl = `${vaultClient.baseUrl}/api/v24.1/metadata/objects`;
+        const urlToFetch = getProxiedUrl(objectsUrl);
+        
+        logDebug(`Using URL for objects list: ${urlToFetch} (CORS proxy: ${useCorsProxy})`);
         
         // Make request
-        const response = await fetch(objectsUrl, {
+        const response = await fetchWithCorsHandling(urlToFetch, {
             method: 'GET',
             headers: {
                 'Authorization': vaultClient.sessionId
@@ -440,8 +497,87 @@ async function getObjects() {
         
         return await response.json();
     } catch (error) {
+        if (error.isCorsError) {
+            logDebug('CORS error detected in getObjects');
+            showCorsErrorMessage();
+        }
         throw new Error(`Object retrieval error: ${error.message}`);
     }
+}
+
+function showCorsErrorMessage() {
+    const errorMessage = `
+        <div class="alert alert-danger">
+            <h5>CORS Error Detected</h5>
+            <p>Your browser is blocking direct API requests to Veeva Vault due to CORS security restrictions.</p>
+            <p><strong>To resolve this:</strong></p>
+            <ol>
+                <li>Make sure you've enabled the CORS proxy by checking the "Use CORS Proxy" checkbox on the connection form.</li>
+                <li>If using CORS Anywhere, visit <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank">this page</a> and request temporary access.</li>
+                <li>Alternatively, contact Veeva Support to enable CORS for your vault domain.</li>
+            </ol>
+        </div>
+    `;
+    
+    // Show the error message in any status element that's currently visible
+    if (document.getElementById('connection-tab').classList.contains('show')) {
+        connectionStatus.innerHTML = errorMessage;
+    } else {
+        resultsStatus.innerHTML = errorMessage;
+    }
+}
+
+function loadVobjects(vobjectsUrl, objects, onComplete) {
+    const vobjectsUrlToFetch = getProxiedUrl(vobjectsUrl);
+    
+    logDebug(`Fetching vobjects from: ${vobjectsUrlToFetch} (CORS proxy: ${useCorsProxy})`);
+    
+    fetchWithCorsHandling(vobjectsUrlToFetch, {
+        method: 'GET',
+        headers: {
+            'Authorization': vaultClient.sessionId
+        }
+    })
+    .then(response => response.json())
+    .then(vobjectsData => {
+        // Try both potential response formats
+        if (vobjectsData.vobjects) {
+            // Extract vobject names
+            for (const obj of vobjectsData.vobjects) {
+                const name = obj.name || '';
+                if (name) {
+                    objects.push(name);
+                }
+            }
+            
+            logDebug(`Added ${vobjectsData.vobjects.length} vobjects`);
+        } else if (vobjectsData.data) {
+            // Extract vobject names
+            for (const obj of vobjectsData.data) {
+                const name = obj.name || '';
+                if (name) {
+                    objects.push(name);
+                }
+            }
+            
+            logDebug(`Added ${vobjectsData.data.length} vobjects`);
+        } else {
+            logDebug("No 'vobjects' or 'data' field in vobjects response");
+            logDebug(`vobjectsData keys: ${Object.keys(vobjectsData).join(', ')}`);
+        }
+        
+        onComplete(objects);
+    })
+    .catch(error => {
+        if (error.isCorsError) {
+            logDebug('CORS error detected in loadVobjects');
+            showCorsErrorMessage();
+        } else {
+            logDebug(`Error fetching vobjects: ${error.message}`);
+        }
+        // Still complete with whatever objects we have
+        onComplete(objects);
+    });
 }
 
 // Load available objects
@@ -466,51 +602,7 @@ function loadObjects() {
                 
                 // Fetch vobjects if URL is provided
                 if (values.vobjects) {
-                    const vobjectsUrl = values.vobjects;
-                    logDebug(`Fetching vobjects from: ${vobjectsUrl}`);
-                    
-                    fetch(vobjectsUrl, {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': vaultClient.sessionId
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(vobjectsData => {
-                        // Try both potential response formats
-                        if (vobjectsData.vobjects) {
-                            // Extract vobject names
-                            for (const obj of vobjectsData.vobjects) {
-                                const name = obj.name || '';
-                                if (name) {
-                                    objects.push(name);
-                                }
-                            }
-                            
-                            logDebug(`Added ${vobjectsData.vobjects.length} vobjects`);
-                        } else if (vobjectsData.data) {
-                            // Extract vobject names
-                            for (const obj of vobjectsData.data) {
-                                const name = obj.name || '';
-                                if (name) {
-                                    objects.push(name);
-                                }
-                            }
-                            
-                            logDebug(`Added ${vobjectsData.data.length} vobjects`);
-                        } else {
-                            logDebug("No 'vobjects' or 'data' field in vobjects response");
-                            logDebug(`vobjectsData keys: ${Object.keys(vobjectsData).join(', ')}`);
-                        }
-                        
-                        // Update objects list after fetching vobjects
-                        updateObjectsList(objects);
-                    })
-                    .catch(error => {
-                        logDebug(`Error fetching vobjects: ${error.message}`);
-                        // Still update with standard objects
-                        updateObjectsList(objects);
-                    });
+                    loadVobjects(values.vobjects, objects, updateObjectsList);
                 } else {
                     // Just update with standard objects if no vobjects URL
                     updateObjectsList(objects);
