@@ -3,6 +3,8 @@
 
 A web-based tool for building and executing VQL (Vault Query Language) queries against Veeva Vault instances.
 
+Available on : https://codehopperreddit.github.io/vqlworkbench/
+
 ## Features
 
 - Modern, responsive UI
